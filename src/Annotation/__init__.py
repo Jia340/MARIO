@@ -183,6 +183,8 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
             subtype = tempname[2]
             if not IsProperStrand(hit, bed):
                 strandcol = "NonProperStrand"
+            else:
+                strandcol = "ProperStrand"
             break
         '''
         try:

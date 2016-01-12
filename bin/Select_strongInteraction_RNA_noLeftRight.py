@@ -38,18 +38,22 @@ def GetAnnotationName(pAnno, hasAnno, dbi, hasRepeat, dbirepeat):
             bed = Bed([pAnno.chr, pAnno.start, pAnno.end, '.', 0.0, '+'])
             for hit in dbi.query(bed):
                 name_component = hit.id.split(".", 2)[2]
-                if pAnno.name == name_component:
-                    pAnno.id = hit.id.split(".", 2)[1]
-                    return ":".join(str(f) for f in [pAnno.id, pAnno.proper])
+                id_component = hit.id.split(".", 2)[1]
+                if pAnno.name == name_component or pAnno.name.split("_", 2)[0] == id_component:
+                    pAnno.id = id_component
+                    return ":".join(str(f) for f in [pAnno.type, pAnno.id, pAnno.proper])
+                    
         if hasRepeat:
             for hit in dbirepeat.query(bed):
                 tempname=hit.id.split("&")
                 if pAnno.name == tempname[0]:
                     pAnno.id = "".join(str(f) for f in [pAnno.chr, pAnno.name, hit.start])
-                    return ":".join(str(f) for f in [pAnno.id, pAnno.proper])
+                    return ":".join(str(f) for f in [pAnno.type, pAnno.id, pAnno.proper])
+        if pAnno.type == 'tRNA':
+            return ":".join(str(f) for f in [pAnno.type, pAnno.name, pAnno.proper])
         if hasAnno or hasRepeat:
             raise Exception('pAnno not found! ' + pAnno.chr + ':' + pAnno.name)
-        pAnno.id = "".join(str(f) for f in [pAnno.chr, pAnno.name, pAnno.start])
+        pAnno.id = "".join(str(f) for f in [pAnno.type, pAnno.chr, pAnno.name, pAnno.start])
     elif ".fa" in pAnno.source:
         pAnno.id = pAnno.chr.split("_")[0]
         try:
@@ -58,7 +62,7 @@ def GetAnnotationName(pAnno, hasAnno, dbi, hasRepeat, dbirepeat):
             pass
     else:
         pAnno.id = pAnno.name
-    return pAnno.id + ":" + pAnno.proper 
+    return pAnno.type + ":" + pAnno.id + ":" + pAnno.proper 
 
 def Main():
     t1=time()
@@ -151,8 +155,8 @@ def Main():
                     interaction[inter_name][0].Update(p1.start,p1.end)
                     interaction[inter_name][1].Update(p2.start,p2.end)
                     interaction[inter_name][0].cluster+=1
-        except:
-            pass
+        except Exception as e:
+            print >> sys.stderr, e
         if k%20000==0: 
             print >> sys.stderr,"  Reading %d pairs of segments\r"%(k),
     print >> sys.stdout,"Get total %d pairs."%(k)

@@ -49,6 +49,7 @@ parseCommandLine(ModifyStringOptions & options, int argc, char const ** argv)
     addOption(parser, seqan::ArgParseOption(
         "t", "threads", "number of threads to use",
         seqan::ArgParseArgument::INTEGER, "NUMBER"));
+	addDefaultValue(parser, "t", 1);
 
     addOption(parser, seqan::ArgParseOption(
         "v", "verbose", "print alignment information for each alignment"));
@@ -407,7 +408,9 @@ int main(int argc, char const ** argv)
 	boost::thread_group thrdGroup;
 	//std::vector<Worker> workers;
 
-	for(int iWk = 0; iWk < options.nThreads; iWk++) {
+	thrdGroup.create_thread(Worker(primer1, primer2, mainIO, options.Verbose, 0));
+
+	for(int iWk = 1; iWk < options.nThreads; iWk++) {
 		//workers.push_back();
 		thrdGroup.create_thread(Worker(primer1, primer2, mainIO, options.Verbose, iWk));
 	}

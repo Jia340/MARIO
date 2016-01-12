@@ -99,17 +99,23 @@ def Merge(halfs):
   '''
   seq_l=len(halfs[0][4])
   
-  if "_rna.fa" not in halfs[0][5]:
+  if "miRNA" in halfs[0][5]:
     #find unique fragments and return them
     halfs_set=set()
+    H=halfs[0]
+    name=halfs[0][0]
     for h in halfs:
       if h[6]=="miRNA":  #check miRNA
         if dead_miRNA(h[7])==1:
   #        h[0]=h[0]+"_dead"
           h[8]="dead"
-      halfs_set.add('\t'.join(h))
+        if h[0]<name:
+          H=h
+          name=h[0]
+    halfs_set.add('\t'.join(H))
+      
     return halfs_set
-
+#usually the multi-align reads are mapped to the same miRNA family. So we simply randomly choose one to report.
  
   AlignType=halfs[0][9]
 
@@ -196,6 +202,7 @@ def MergeTX(frags,output):
   '''
   frags is a list of fragments with same linker ID.
   '''
+  #for genome, we only check if miRNA is a dead miRNA.
   if frags[0][5]=="genome":
     frag_set=set()
     for f in frags:

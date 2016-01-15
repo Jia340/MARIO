@@ -97,18 +97,18 @@ def blat_align(b_path, read, ref, fastqToFasta, recovering, unmapfile, mirnalen,
     tmp = read.rsplit("/", 1)
     filenametmp = tmp[-1].split(".")
     pathBase = "./"
-    if outputPath and not read.startswith(outputPath + '/'):
+    if outputPath.strip():
         pathBase = outputPath + '/'
 
     if not filenametmp[-1] in ["fa","fasta"]:   # fastq needs to be converted
-        fastafile = pathBase + "/".join(tmp[:-1]) + "/" + ".".join(filenametmp[:-1]) + ".fasta"
+        fastafile = pathBase + ".".join(filenametmp[:-1]) + ".fasta"
         os.system(fastqToFasta + " -i " + read + " -o " + fastafile);
     else:
         fastafile = read
 
-    fastatoblat = pathBase + "/".join(tmp[:-1]) + "/" + ".".join(filenametmp[:-1]) + "_blat.fasta"
+    fastatoblat = pathBase + ".".join(filenametmp[:-1]) + "_blat.fasta"
 
-    output = pathBase + "/".join(tmp[:-1]) + "/" + ".".join(filenametmp[:-1]) + ".blatresult"
+    output = pathBase + ".".join(filenametmp[:-1]) + ".blatresult"
 
     if not recovering or (not os.path.isfile(output)) or os.stat(output).st_size <= 0:
         # a new file is definitely required
@@ -456,10 +456,10 @@ def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,re
     # offrate is not used due to bowtie2 bug
     readPath = '/'.join(read.rsplit("/", 1)[:-1])
     readFileStem = read.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-    readPathSlash = (readPath + '/') if readPath.strip() else ''
+    readPathSlash = './'
 
-    if outputPath and not readPathSlash.startswith(outputPath + '/'):
-        readPathSlash = outputPath + '/' + readPathSlash
+    if outputPath.strip():
+        readPathSlash = outputPath + '/'
 
     sam = readPathSlash + readFileStem + ".sam"
 
@@ -686,10 +686,10 @@ def Main():
         # unmapped read file
         print >> sys.stderr, 'Mapping ' + readfile + ' with ref: ' + reftype + (' (Recovering from old reads)' if inRecoveryFrag else '')
         readPath = '/'.join(readfile.rsplit("/", 1)[:-1])
-        readPathSlash = (readPath + '/') if readPath.strip() else ''
+        readPathSlash = './'
         readFileStem = readfile.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-        if not readPathSlash.startswith(output + '/'):
-            readPathSlash = output + '/' + readPathSlash
+        if output.strip():
+            readPathSlash = output + '/'
         unmap_read = readPathSlash + readFileStem + "_unmap." + readfile.rsplit("/", 1)[-1].rsplit(".", 1)[-1]
 
         if reftype.lower() == "mirna":

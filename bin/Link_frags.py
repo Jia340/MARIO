@@ -11,8 +11,6 @@ def ParseArg():
   return p.parse_args()  
 
 def Main():
-  linker1=set()
-  linker2=set()
   args=ParseArg()
   Frags={}
   file1=open(args.RNA1,"r")
@@ -21,11 +19,6 @@ def Main():
     line=file1.readline()
     if line=="":break
     line=line.strip().split('\t')
-    if line[0]=="chrMT" or line[0]=="chrNT":
-      continue
-#    if line[10] not in linker1:
-    linker1.add(line[10])
-      
     if line[11]=="One":
       if line[10] not in Frags:
         Frags[line[10]]=['\t'.join(line[0:11])]
@@ -39,15 +32,9 @@ def Main():
     line=file2.readline()
     if line=="":break
     line=line.strip().split('\t')
-#    if line[0]=="chrMT" or line[0]=="chrNT":
-#      continue
-   # if line[10] not in linker2:
-    linker2.add(line[10])
     if line[11]=="One" and line[10] in Frags:
       Frags[line[10]].append('\t'.join(line[0:10]))
-  
-  print >>sys.stderr,"Number of Paired fragments is: %d"%(len(linker1.intersection(linker2)))
-  
+
   for key in Frags:
     if len(Frags[key])==2:
       print >>output,Frags[key][0]+'\t'+Frags[key][1]

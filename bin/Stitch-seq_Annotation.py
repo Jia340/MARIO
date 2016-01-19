@@ -18,17 +18,13 @@ def ParseArg():
     p=argparse.ArgumentParser( description = 'Annotate aligned RNAs. ')
     p.add_argument('input_path',type=str,help="path for the input folder, which is the output folder of Stitch-seq_Aligner.py")
     p.add_argument('file_perfix',type=str,help="perfix for the file. The program will search files in the input folder based on this argument")
-#    p.add_argument('input_bam',type=str,metavar='bam_files',help='bam file/blatresult that need to be annotated. The format of input files should be .bam/.blatresult',nargs="*")
     p.add_argument('--annotype',type=str,metavar='at',default="genome",help="Reference types: (miRNA, genome, transcript, other). The order should be the same as that of the bam/blatresult files",nargs="*")
     p.add_argument('--tx_anno',type=str,metavar='txa',help="Annotation file for transcriptome. It is the reference for alignment, that is, rna.fa. Should be specified if annotype contains transcript")
     p.add_argument('-a','--annotation',type=str,help='If specified, include the RNA type annotation for each aligned pair, need to give bed annotation RNA file. Should be specified if annotype contains genome')
     p.add_argument("-A","--annotationGenebed",dest="db_detail",type=str,help="annotation bed12 file for lincRNA and mRNA with intron and exon. Should be specified if annotype contains genome")
     p.add_argument("-R","--annotationRepeat",dest="db_repeat",type=str,help="annotation bed6 file from repeatMasker. Should be specificed if annotype contains genome")
     p.add_argument("-M","--mapq",type=int,default=2,help="For reads mapped to genome, reads with MAPQ lower than M will be labeled as 'Many' and will be discarded in next step")
-#    p.add_argument("-f","--mirna_fa",type=str,help="The fa file for blat. It is an output of the last step")
-##    p.add_argument('-l', '--mirnalen', type=check_negative, dest="mirnalen", default=35, help="Set the maximum length allow for a miRNA alignment (default = 35), a higher value may recover more miRNA alignments if there are references at such length but will be slower.Please use the same value as last step")
     p.add_argument("-P","--pair",type=int, help="Specify if the RNA is RNA1/2. Should be 1 or 2")
-#    p.add_argument("-o","--output",type=str,help="output file name. The program will add .pairOutput after the filename")
     if len(sys.argv)==1:
         #print (p.print_help(),file=sys.stderr)
         print >>sys.stderr,p.print_help()
@@ -251,11 +247,6 @@ def otherlib_annotation(outputbam, annotationfile = 'misc', requireUnique = Fals
         unique = False
         ##transcripts should be merged. Otherwise it's hard to know whether it's multimapped. Many/One won't be used for transcripts in link_frag.py
 
-#        try:
-#            record.opt('XS')
-#            unique = False
-#        except:
-#            unique = True
 
         if ((not requireUnique) or unique) and ((not strandenforced) or record.is_reverse != posstrand) and not record.is_unmapped:
             # this is a suitable entry
@@ -302,14 +293,6 @@ def otherlib_annotation(outputbam, annotationfile = 'misc', requireUnique = Fals
                         newdict[name] = [newdict[name]]
                     newdict[name].append('\t'.join(curr_anno_arr))
 
-#        elif record.is_unmapped:
-#            # write unmapped reads
-#            seq = record.seq
-#            if record.is_reverse:
-#                seq = revcomp(record.seq, rev_table)
-#            unmap_rec = SeqRecord(Seq(seq, IUPAC.unambiguous_dna), id = name, description='')
-#            SeqIO.write(unmap_rec, funmap, "fasta")
-#    funmap.close()
 
     newanno = dict(results_dict.items() + newdict.items())
     return newanno
@@ -322,11 +305,6 @@ def Included(record,RequireUnique,mapq_thred):
             unique=True
         else:
             unique=False
-#        try:
-#            record.opt('XS')
-#            unique=False
-#        except:
-#            unique=True
     else:
         unique=True # not consider unique
     return (not record.is_unmapped)&unique
@@ -382,15 +360,6 @@ def genome_annotation(outputbam, annotationfile, detail, annotationRepeat, mapq_
                     newdict[record.qname].append('\t'.join(curr_anno_arr))
                 IsMapped = True
 
- #       if not IsMapped:
- #           # output all pairs that cannot be mapped on both sides as unmaped pairs into two fasta file
- #           seq = record.seq
- #           if record.is_reverse:
- #               seq = revcomp(record.seq, rev_table)
- #           unmap_rec = SeqRecord(Seq(seq, IUPAC.unambiguous_dna), id = record.qname, description='')
- #           SeqIO.write(unmap_rec, funmap, "fasta")
-
- #   funmap.close()
     newanno = dict(results_dict.items() + newdict.items())
     return newanno
 
@@ -425,7 +394,6 @@ def Main():
     for i in xrange(len(reftypelist)):
       gc.collect()
       reftype=reftypelist[i]
-#      inputbam=args.input_bam[i]
       if reftype.lower()=="mirna":
           inputbam=fin+'/'+fperfix+".blatresult"
           annodictentry = blat_annotation(inputbam, reftype, fin+'/'+fperfix+'_blat.fasta', unique, strand, strandenforced, 2, annodictentry)

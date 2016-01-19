@@ -227,7 +227,9 @@ def optimize_annotation(c_dic,bed,ref_detail):
         del gene
 
     if ftyp=="":
-        if "other" in c_dic:
+        if "short_nc" in c_dic:
+            gene=c_dic["short_nc"][0]
+        elif "other" in c_dic:
             gene=c_dic["other"][0]
         elif "protein_coding-noncoding" in c_dic:
             gene=c_dic["protein_coding-noncoding"][0]
@@ -330,6 +332,11 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
                             P_dic[typ].append([typ,name,subtype,strandcol])
                         else:
                             P_dic[typ]=[[typ,name,subtype,strandcol]]
+                    elif typ=="snoRNA" or typ=="miRNA" or typ=="snRNA":
+                        if "short_nc" in P_dic:
+                            P_dic["short_nc"].append([typ,name,subtype,strandcol])
+                        else:
+                            P_dic["short_nc"]=[[typ,name,subtype,strandcol]]
                     else:
                         if "other" in P_dic:
                             P_dic["other"].append([typ,name,subtype,strandcol])
@@ -341,6 +348,11 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
                             N_dic[typ].append([typ,name,subtype,strandcol])
                         else:
                             N_dic[typ]=[[typ,name,subtype,strandcol]]
+                    elif typ=="snoRNA" or typ=="miRNA" or typ=="snRNA":
+                        if "short_nc" in N_dic:
+                            N_dic["short_nc"].append([typ,name,subtype,strandcol])
+                        else:
+                            N_dic["short_nc"]=[[typ,name,subtype,strandcol]]
                     else:
                         if "other" in N_dic:
                             N_dic["other"].append([typ,name,subtype,strandcol])

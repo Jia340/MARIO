@@ -9,7 +9,10 @@ class ens_transcript():
     if source=="ens":
       self.txID=x[0].strip()
       self.geneID=x[1].strip()
-      self.chr='chr'+x[2].strip()
+      if "chr" not in x[2]:
+        self.chr='chr'+x[2].strip()
+      else:
+        self.chr=x[2].strip()
       if x[3]=="1":self.strand="+"
       else:self.strand="-"
       self.name=x[4]

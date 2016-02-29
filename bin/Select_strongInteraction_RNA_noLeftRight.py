@@ -55,9 +55,9 @@ def GetAnnotationName(pAnno, hasAnno, dbi, hasRepeat, dbirepeat):
             raise Exception('pAnno not found! ' + pAnno.chr + ':' + pAnno.name)
         pAnno.id = "".join(str(f) for f in [pAnno.type, pAnno.chr, pAnno.name, pAnno.start])
     elif ".fa" in pAnno.source:
-        pAnno.id = pAnno.chr.split("_")[0]
+        pAnno.id = pAnno.chr.split("_", 1)[0]
         try:
-            pAnno.chr = pAnno.chr.split("_")[1]
+            pAnno.chr = pAnno.chr.split("_", 1)[1]
         except:
             pass
     else:

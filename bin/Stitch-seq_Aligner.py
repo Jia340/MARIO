@@ -65,6 +65,7 @@ def ParseArg():
     p.add_argument('-r', '--resume', action="store_true", dest="recover", help="Set to let Stitch-seq recover from previous files. Parameters other than number of threads need to be exactly the same for recovery. This may be useful if Stitch-seq crashes for CPU/memory/storage reasons.")
     p.add_argument('-l', '--mirnalen', type=check_negative, dest="mirnalen", default=35, help="Set the maximum length allow for a miRNA alignment (default = 35), a higher value may recover more miRNA alignments if there are references at such length but will be slower.")
     p.add_argument('-o', '--output_path', type=str, default='output', help='The path where all output files will be written to. Input files with the same name may need different output path values to prevent overwriting. default value: \'output\'')
+    p.add_argument('-q', '--mapq_threshold', dest='mapqThreshold', type=check_negative, default=2, help='The MAPQ number threshold to detect gaps. Reads with MAPQ lower than this number but has a large difference between XS may be caused by RNA junctions and therefore should be considered as unmapped (to be remapped by later transcriptome mapping procedures, if any). default value: 2')
 
     if len(sys.argv)==1:
         #print (p.print_help(),file=sys.stderr)
@@ -275,7 +276,7 @@ def blat_annotation(outputfilename, typename, readfilename, unmapfilename, anno 
     return newanno
 
 
-def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,recovering,unmap,outputPath):
+def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,recovering,unmap,outputPath,mapqThreshold):
     # b_path: bowtie path;
     # s_path: samtools path;
     # bowtie2: logic, true/false
@@ -288,6 +289,7 @@ def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,re
         readPathSlash = outputPath + '/'
 
     sam = readPathSlash + readFileStem + ".sam"
+    bam = readPathSlash + readFileStem + ".bam"
 
     hasFile = False
 
@@ -308,34 +310,78 @@ def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,re
         else:
             foption=""
 
+        if reftype == 'genome':
+            # is genome, use temporary result file and no unmap output
+            samFileTarget = readPathSlash + "preResults.sam"
+            bamFileTarget = readPathSlash + "preResults.bam"
+        else:
+            samFileTarget = sam
+            bamFileTarget = bam
+
         if ref.split(".")[-1] in ["fa","fasta"]:
             base=ref.split("/")[-1].split(".")[0]
             os.system("rm " + readPathSlash + readFileStem + ".log")
             os.system(b_path+"-build "+ref+" "+base+" >> " + readPathSlash + readFileStem + ".log 2>&1")
-            if not bowtie2:
-                os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + " --un " + unmap + " -S "+base+" "+read+" "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
-            else:
-                os.system(b_path+ " -x "+base+foption+" -U "+read+ " -p " + str(numOfThreads) + " -i S,1,0.50 0R 3 -L 15 -D 20 -t " + ("-a " if reftype != "genome" else "") + " --un " + unmap + " -S "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
         else:
-            os.system("rm " + readPathSlash + readFileStem + ".log")
-            if not bowtie2:
-                os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + " --un " + unmap + " -S "+ref+" "+read+" "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
-            else:
-                os.system(b_path+ " -x "+ref+foption+" -U "+read + " -p " + str(numOfThreads) + " -L 15 -D 20 -t " + ("-a " if reftype != "genome" else "") + " --un " + unmap + " -S "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
-        bam = readPathSlash + readFileStem + ".bam"
-        os.system(s_path + " view -Sb -o "+ bam + " " + sam)
-        os.system("rm " + sam)
-        pysam.sort("-n", bam, "temp")
-        align=pysam.Samfile("temp.bam", "rb")
-        os.system("rm temp.bam")
+            base = ref
+        #if not bowtie2:
+        #    os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + " --un " + unmap + " -S "+base+" "+read+" "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
+        #else:
+        #    os.system(b_path+ " -x "+base+foption+" -U "+read+ " -p " + str(numOfThreads) + " -i S,1,0.50 0R 3 -L 15 -D 20 -t " + ("-a " if reftype != "genome" else "") + " --un " + unmap + " -S "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
+        #else:
+        if not bowtie2:
+            os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + ((" --un " + unmap) if reftype != 'genome' else '') + " -S "+base+" "+read+" "+samFileTarget+" >> " + readPathSlash + readFileStem + ".log 2>&1")
+        else:
+            os.system(b_path+ " -x " + base + foption + " -U " + read + " -p " + str(numOfThreads) + " -L 15 -D 20 -t " + (("-a --un " + unmap) if reftype != "genome" else '') + " -S " + samFileTarget + " >> " + readPathSlash + readFileStem + ".log 2>&1")
+
+        os.system(s_path + ' view -Sb -o ' + bamFileTarget + ' ' + samFileTarget)
+        os.system("rm " + samFileTarget)
+        
+        # add genome filtering here, after that the output files will become sam and bam
+        if reftype == 'genome':
+            print >> sys.stderr, 'Filtering genome results...'
+            align = pysam.Samfile(bamFileTarget, 'rb')
+            alignOutput = pysam.Samfile(bam, 'wb', template=align)
+            funmap = open(unmap, 'w')
+            for record in align:
+                isMapped = not record.is_unmapped
+
+                if isMapped:
+                    if record.mapq < mapqThreshold: # if mapq > mapqthreshold, may be unmapped (fall onto downstream mapping)
+                        try:
+                            AS=record.opt("AS")
+                            try:
+                                XS=record.opt("XS")
+                                if AS-XS >= 3:
+                                    # wrongly mapped, consider as unmapped (to be rescued in lower mapping)
+                                    isMapped = False
+                            except:
+                                isMapped = False
+                        except:
+                            pass
+
+                if isMapped:
+                    alignOutput.write(record)
+                else:
+                    seq = record.seq
+                    if record.is_reverse:
+                        seq = revcomp(record.seq, rev_table)
+                    unmap_rec = SeqRecord(Seq(seq, IUPAC.unambiguous_dna), id = record.qname, description='')
+                    SeqIO.write(unmap_rec, funmap, "fasta")
+
+            align.close()
+            alignOutput.close()
+            funmap.close()
+
         os.system(s_path+ " sort "+ bam + " " + readPathSlash + "sort_" + readFileStem)
         os.system("rm " + bam)
+        align=pysam.Samfile(readPathSlash + "sort_" + readFileStem + ".bam", "rb")
         print >> sys.stderr, 'Mapping completed.'
+
     else:
         print >> sys.stderr, 'Old file exists, recovery in process.'
+    
     return align
-
-
 
 def createPath(path):
     try:
@@ -446,7 +492,7 @@ def Main():
             outputfile, readused = blat_align(args.blat_path, readfile, reffile, args.f2fpath, inRecoveryFrag, unmap_read, args.mirnalen, output)
             annodictentry = blat_annotation(outputfile, reftype, readused, unmap_read, annotation, False, strand, strandenforced, 2, annodictentry)
         else:
-            outputbam = bowtie_align(args.bowtie_path, readfile, reffile, args.spath, args.bowtie2, nThreads, nOffrate, reftype.lower(), inRecoveryFrag, unmap_read, output)
+            outputbam = bowtie_align(args.bowtie_path, readfile, reffile, args.spath, args.bowtie2, nThreads, nOffrate, reftype.lower(), inRecoveryFrag, unmap_read, output, args.mapqThreshold)
 
         readfile = unmap_read
         gc.collect()

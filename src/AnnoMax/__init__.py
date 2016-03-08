@@ -158,7 +158,16 @@ def optimize_annotation(c_dic,bed,ref_detail):
     fname=""
     fsubtype=""
     fstrandcol=""
-    if "protein_coding" in c_dic:
+
+
+
+    if "rRNA" in c_dic:
+        ftyp=c_dic["rRNA"][0][0]
+        fname=c_dic["rRNA"][0][1]
+        fsubtype=c_dic["rRNA"][0][2]
+        fstrandcol=c_dic["rRNA"][0][3]
+
+    if "protein_coding" in c_dic and ftyp=="":
         for ind in xrange(len(c_dic["protein_coding"])-1,-1,-1):
             gene=c_dic["protein_coding"][ind]
       #      print gene
@@ -332,6 +341,11 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
                             P_dic[typ].append([typ,name,subtype,strandcol])
                         else:
                             P_dic[typ]=[[typ,name,subtype,strandcol]]
+                    elif typ=="rRNA_repeat" or typ=="rRNA":
+                        if "rRNA" in P_dic:
+                            P_dic["rRNA"].append([typ,name,subtype,strandcol])
+                        else:
+                            P_dic["rRNA"]=[[typ,name,subtype,strandcol]]
                     elif typ=="snoRNA" or typ=="miRNA" or typ=="snRNA":
                         if "short_nc" in P_dic:
                             P_dic["short_nc"].append([typ,name,subtype,strandcol])
@@ -348,6 +362,11 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
                             N_dic[typ].append([typ,name,subtype,strandcol])
                         else:
                             N_dic[typ]=[[typ,name,subtype,strandcol]]
+                    elif typ=="rRNA_repeat" or typ=="rRNA":
+                        if "rRNA" in N_dic:
+                            N_dic["rRNA"].append([typ,name,subtype,strandcol])
+                        else:
+                            N_dic["rRNA"]=[[typ,name,subtype,strandcol]]
                     elif typ=="snoRNA" or typ=="miRNA" or typ=="snRNA":
                         if "short_nc" in N_dic:
                             N_dic["short_nc"].append([typ,name,subtype,strandcol])

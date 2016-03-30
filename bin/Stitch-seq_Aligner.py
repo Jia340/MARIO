@@ -37,9 +37,10 @@ def ParseArg():
     p.add_argument('inputFile',type=str,metavar='part_reads',help='a part of paired fasta/fastq file')
     #p.add_argument('input2',type=str,metavar='part2_reads',help='paired part2 fasta/fastq file')
 
-    groupBowtie = p.add_mutually_exclusive_group()
-    groupBowtie.add_argument('-bt', '--bowtie_path',type=str,metavar='bowtie_path',help="path for the bowtie executive")
-    groupBowtie.add_argument('-bt2', '--bowtie2_path', type=str, metavar="bowtie2_path", help="path for bowtie2 executive")
+    groupMapper = p.add_mutually_exclusive_group()
+    groupMapper.add_argument('-bt', '--bowtie_path',type=str,metavar='bowtie_path',help="path for the bowtie executive")
+    groupMapper.add_argument('-bt2', '--bowtie2_path', type=str, metavar="bowtie2_path", help="path for bowtie2 executive")
+    groupMapper.add_argument('-th', '--tophat_path', type=str, metavar="tophat_path", help="path for tophat executive")
     p.add_argument('-bl', '--blat_path', type=str, metavar='blat_path', help="path for the blat executive (for miRNA only)", default='blat')
     p.add_argument('-f','--fastq_to_fasta_path', dest='f2fpath', default='fastq_to_fasta', type=str, metavar='fastq_to_fasta_path', help="path for the fastq_to_fasta executive (for miRNA only)")
     p.add_argument('-s','--samtools_path',dest='spath', type=str,metavar='samtool_path',help="path for samtools executive",default='samtools')
@@ -66,6 +67,8 @@ def ParseArg():
     p.add_argument('-l', '--mirnalen', type=check_negative, dest="mirnalen", default=35, help="Set the maximum length allow for a miRNA alignment (default = 35), a higher value may recover more miRNA alignments if there are references at such length but will be slower.")
     p.add_argument('-o', '--output_path', type=str, default='output', help='The path where all output files will be written to. Input files with the same name may need different output path values to prevent overwriting. default value: \'output\'')
     p.add_argument('-q', '--mapq_threshold', dest='mapqThreshold', type=check_negative, default=2, help='The MAPQ number threshold to detect gaps. Reads with MAPQ lower than this number but has a large difference between XS may be caused by RNA junctions and therefore should be considered as unmapped (to be remapped by later transcriptome mapping procedures, if any). default value: 2')
+    p.add_argument('-G', '--gtf', type = str, help='GTF file for gene annotation. (Only used when Tophat is used as mapper.)')
+    p.add_argument('-i', '--transcriptome-index', dest = 'trans_index', type = str, help='Index file for transcriptome. (Only used when Tophat is used as mapper. Will override -G if the file is up-to-date.)')
 
     if len(sys.argv)==1:
         #print (p.print_help(),file=sys.stderr)
@@ -310,8 +313,9 @@ def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,re
         else:
             foption=""
 
-        if reftype == 'genome':
+        #if reftype == 'genome':
             # is genome, use temporary result file and no unmap output
+        if bowtie2:
             samFileTarget = readPathSlash + "preResults.sam"
             bamFileTarget = readPathSlash + "preResults.bam"
         else:
@@ -330,51 +334,136 @@ def bowtie_align(b_path,read,ref,s_path,bowtie2,numOfThreads,nOffrate,reftype,re
         #    os.system(b_path+ " -x "+base+foption+" -U "+read+ " -p " + str(numOfThreads) + " -i S,1,0.50 0R 3 -L 15 -D 20 -t " + ("-a " if reftype != "genome" else "") + " --un " + unmap + " -S "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
         #else:
         if not bowtie2:
-            os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + ((" --un " + unmap) if reftype != 'genome' else '') + " -S "+base+" "+read+" "+samFileTarget+" >> " + readPathSlash + readFileStem + ".log 2>&1")
+            os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + " --un " + unmap + " -S "+base+" "+read+" "+samFileTarget+" >> " + readPathSlash + readFileStem + ".log 2>&1")
         else:
-            os.system(b_path+ " -x " + base + foption + " -U " + read + " -p " + str(numOfThreads) + " -L 15 -D 20 -t " + (("-a --un " + unmap) if reftype != "genome" else '') + " -S " + samFileTarget + " >> " + readPathSlash + readFileStem + ".log 2>&1")
+            os.system(b_path+ " -x " + base + foption + " -U " + read + " -p " + str(numOfThreads) + " -L 15 -D 20 -t " + (("-a") if reftype != "genome" else '') + " -S " + samFileTarget + " >> " + readPathSlash + readFileStem + ".log 2>&1")
 
         os.system(s_path + ' view -Sb -o ' + bamFileTarget + ' ' + samFileTarget)
         os.system("rm " + samFileTarget)
         
         # add genome filtering here, after that the output files will become sam and bam
-        if reftype == 'genome':
-            print >> sys.stderr, 'Filtering genome results...'
+        if bowtie2:
+        #if reftype == 'genome':
+            print >> sys.stderr, 'Filtering mapping results...'
             align = pysam.Samfile(bamFileTarget, 'rb')
             alignOutput = pysam.Samfile(bam, 'wb', template=align)
-            funmap = open(unmap, 'w')
+
+            unmapDict = dict()
+            mappedDict = dict()
+            
             for record in align:
                 isMapped = not record.is_unmapped
+                hasAS = False
 
                 if isMapped:
-                    if record.mapq < mapqThreshold: # if mapq > mapqthreshold, may be unmapped (fall onto downstream mapping)
-                        try:
-                            AS=record.opt("AS")
-                            try:
-                                XS=record.opt("XS")
-                                if AS-XS >= 3:
-                                    # wrongly mapped, consider as unmapped (to be rescued in lower mapping)
-                                    isMapped = False
-                            except:
+                    try:
+                        AS=record.opt("AS")
+                        hasAS = True
+                        # first filter based on previous best score
+                        if '[AS=' in record.qname:
+                            # has old best AS in last mapping
+                            oldAS = int(record.qname.partition('[AS=')[-1].partition(']')[0])
+                            # remove old AS in qname
+                            record.qname = record.qname.partition('[AS=')[0] + record.qname.partition('[AS=')[-1].partition(']')[-1]
+                            
+                            if oldAS >= AS:
+                                # old AS not worse than this new AS
+                                AS = oldAS
                                 isMapped = False
-                        except:
-                            pass
+                                raise
+                            
+                        # then do genome specific stuff
+                        if reftype == 'genome':
+                            if record.mapq < mapqThreshold: # if mapq > mapqthreshold, may be unmapped (fall onto downstream mapping)
+                                try:
+                                    XS=record.opt("XS")
+                                    if AS-XS >= 3:
+                                        # wrongly mapped, consider as unmapped (to be rescued in lower mapping)
+                                        isMapped = False
+                                except:
+                                    isMapped = False
+                    except:
+                        pass
 
                 if isMapped:
                     alignOutput.write(record)
+                    if record.qname in unmapDict:
+                        del unmapDict[record.qname]
+                    mappedDict[record.qname] = True
                 else:
-                    seq = record.seq
-                    if record.is_reverse:
-                        seq = revcomp(record.seq, rev_table)
-                    unmap_rec = SeqRecord(Seq(seq, IUPAC.unambiguous_dna), id = record.qname, description='')
-                    SeqIO.write(unmap_rec, funmap, "fasta")
+                    if record.qname not in mappedDict:
+                        if record.qname not in unmapDict:
+                            unmapDict[record.qname] = dict()
+                        
+                        if 'AS' not in unmapDict[record.qname] or (hasAS and unmapDict[record.qname]['AS'] < AS):
+                            seq = record.seq
+                            if record.is_reverse:
+                                seq = revcomp(record.seq, rev_table)
+                            if hasAS:
+                                unmapDict[record.qname]['AS'] = AS
+                            unmapDict[record.qname]['rec'] = SeqRecord(Seq(seq, IUPAC.unambiguous_dna), id = record.qname + (('[AS=' + str(AS) + ']') if hasAS else '') , description='')
 
             align.close()
             alignOutput.close()
+
+            funmap = open(unmap, 'w')
+            for unmapStuff in unmapDict.itervalues():
+                SeqIO.write(unmapStuff['rec'], funmap, "fasta")
             funmap.close()
 
         os.system(s_path+ " sort "+ bam + " " + readPathSlash + "sort_" + readFileStem)
         os.system("rm " + bam)
+        align=pysam.Samfile(readPathSlash + "sort_" + readFileStem + ".bam", "rb")
+        print >> sys.stderr, 'Mapping completed.'
+
+    else:
+        print >> sys.stderr, 'Old file exists, recovery in process.'
+    
+    return align
+
+def tophat_align(t_path,read,ref,s_path,gtf,trans_index,numOfThreads,reftype,recovering,unmap,outputPath,mapqThreshold):
+    # t_path: tophat path;
+    # s_path: samtools path;
+    readPath = '/'.join(read.rsplit("/", 1)[:-1])
+    readFileStem = read.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    readPathSlash = './'
+
+    if outputPath.strip():
+        readPathSlash = outputPath + '/'
+
+    sam = readPathSlash + readFileStem + ".sam"
+    bam = readPathSlash + readFileStem + ".bam"
+
+    hasFile = False
+
+    if recovering and os.path.isfile(readPathSlash + "sort_" + readFileStem + ".bam"):
+        # old file exists
+        try:
+            align = pysam.Samfile(readPathSlash + "sort_" + readFileStem + ".bam", "rb")
+            hasFile = True
+        except:
+            hasFile = False
+
+    if (not recovering) or (not hasFile):
+        
+        print >> sys.stderr, 'Start mapping.'
+
+        #if reftype == 'genome':
+            # is genome, use temporary result file and no unmap output
+        if ref.split(".")[-1] in ["fa","fasta"]:
+            print >> sys.stderr, 'Reference should be bowtie2-indexed, please run bowtie2-build first.'
+            return
+        else:
+            base = ref
+        #if not bowtie2:
+        #    os.system(b_path+ foption+" -a --best --strata -n 1 -l 15 -e 200 -p " + str(numOfThreads) + " --un " + unmap + " -S "+base+" "+read+" "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
+        #else:
+        #    os.system(b_path+ " -x "+base+foption+" -U "+read+ " -p " + str(numOfThreads) + " -i S,1,0.50 0R 3 -L 15 -D 20 -t " + ("-a " if reftype != "genome" else "") + " --un " + unmap + " -S "+sam+" >> " + readPathSlash + readFileStem + ".log 2>&1")
+        #else:
+        os.system(t_path + " --b2-L 15 --b2-D 20" + " -p " + str(numOfThreads) + " -o " + readPathSlash + "tophat_out" + ((" -G " + gtf) if gtf else '') + ((' --transcriptome-index ' + trans_index) if trans_index else '') + ' ' + base + ' ' + read + " >> " + readPathSlash + readFileStem + ".log 2>&1")
+
+        os.system("mv "+ readPathSlash + "tophat_out/accepted_hits.bam " + readPathSlash + "sort_" + readFileStem + '.bam')
+        os.system("mv "+ readPathSlash + "tophat_out/unmapped.bam " + unmap + '.bam')
         align=pysam.Samfile(readPathSlash + "sort_" + readFileStem + ".bam", "rb")
         print >> sys.stderr, 'Mapping completed.'
 
@@ -491,6 +580,8 @@ def Main():
         if reftype.lower() == "mirna":
             outputfile, readused = blat_align(args.blat_path, readfile, reffile, args.f2fpath, inRecoveryFrag, unmap_read, args.mirnalen, output)
             annodictentry = blat_annotation(outputfile, reftype, readused, unmap_read, annotation, False, strand, strandenforced, 2, annodictentry)
+        elif args.tophat_path:
+            outputbam = tophat_align(args.tophat_path, readfile, reffile, args.spath, args.gtf, args.trans_index, nThreads, reftype.lower(), inRecoveryFrag, unmap_read, output, args.mapqThreshold)
         else:
             outputbam = bowtie_align(args.bowtie_path, readfile, reffile, args.spath, args.bowtie2, nThreads, nOffrate, reftype.lower(), inRecoveryFrag, unmap_read, output, args.mapqThreshold)
 

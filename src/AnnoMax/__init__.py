@@ -242,7 +242,6 @@ def optimize_annotation(c_dic,bed,ref_detail):
                 fstrandcol=gene[3]
                 break
         del gene
-        return [ftyp,fname,fsubtype,fstrandcol]
 
     if ftyp=="":
         if "other" in c_dic:

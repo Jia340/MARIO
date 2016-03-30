@@ -309,6 +309,37 @@ def Included(record,RequireUnique,mapq_thred):
         unique=True # not consider unique
     return (not record.is_unmapped)&unique
 
+def Exon_junction(record):
+    # Parse cigar
+    # return start and end of each part
+    b_list=[]
+    S=record.pos
+    E=S
+    a_s=0
+    a_e=0
+    max_l=0
+    for item in record.cigar:
+        if item[0]==1:
+            pass
+        elif item[0]==3:
+            if E-S+1>max_l:
+                max_l=E-S+1
+                a_s=S
+                a_e=E
+            b_list.append((S,E))
+            E+=int(item[1])
+            S=E
+        else:
+            E+=int(item[1])
+    b_list.append((S,E))           
+    if E-S+1>max_l:
+        max_l=E-S+1
+        a_s=S
+        a_e=E
+    return b_list,a_s,a_e
+              
+
+
 def genome_annotation(outputbam, annotationfile, detail, annotationRepeat, mapq_thred ,strandenforced = False, posstrand = True, requireUnique = False, results_dict = dict()):
     # annotationfile is annotation file
     # detail is db_detail file
@@ -323,6 +354,16 @@ def genome_annotation(outputbam, annotationfile, detail, annotationRepeat, mapq_
 
     for record in outputbam:
         # print >> sys.stderr, record.qname
+        if "N" not in record.cigarstring:
+            anno_start=record.pos
+            anno_end=record.aend
+            bed_start=record.pos
+            bed_end=record.aend
+        else:
+            bed_list,anno_start,anno_end = Exon_junction(record)
+            bed_start=",".join([str(f[0]) for f in bed_list])
+            bed_end=",".join([str(f[1]) for f in bed_list])
+#        print anno_start,anno_end,bed_start,bed_end
         IsMapped = False
 
         if Included(record, requireUnique,mapq_thred):
@@ -332,10 +373,10 @@ def genome_annotation(outputbam, annotationfile, detail, annotationRepeat, mapq_
                 strandactual = ("-" if posstrand else "+")
                 strand = "-"
             if annotationfile:
-                bed=Bed([outputbam.getrname(record.tid), record.pos, record.aend,'.',0.0,strandactual])
+                bed=Bed([outputbam.getrname(record.tid), anno_start, anno_end,'.',0.0,strandactual])
                 [typ, name, subtype, strandcol] = annotation(bed,dbi1,dbi2,dbi3)
                 if (not strandenforced) or strandcol == 'ProperStrand':
-                    curr_anno_arr = (str(f) for f in [outputbam.getrname(record.tid), record.pos, record.aend, strand, record.seq, 'genome', typ, name, subtype, strandcol])
+                    curr_anno_arr = (str(f) for f in [outputbam.getrname(record.tid), bed_start, bed_end, strand, record.seq, 'genome', typ, name, subtype, strandcol])
                     if not record.qname in newdict:
                         newdict[record.qname] = '\t'.join(curr_anno_arr)
                         if not Included(record, True, mapq_thred):

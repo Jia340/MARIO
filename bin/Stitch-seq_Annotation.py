@@ -431,21 +431,22 @@ def Main():
     annodictentry = dict()
     reftypelist=args.annotype  
     print >>sys.stderr,"Annotation type:%s"%('\t'.join(reftypelist))
-    inputbam_name=fin+"/"+"sort_"+fperfix+".bam"
+    in_name=fperfix
     for i in xrange(len(reftypelist)):
       gc.collect()
       reftype=reftypelist[i]
       if reftype.lower()=="mirna":
-          inputbam=fin+'/'+fperfix+".blatresult"
+          inputbam=fin+'/'+in_name+".blatresult"
           annodictentry = blat_annotation(inputbam, reftype, fin+'/'+fperfix+'_blat.fasta', unique, strand, strandenforced, 2, annodictentry)
       else:
-          inputbam_name=inputbam_name[0:-4]+"_unmap"+".bam"
+          inputbam_name=fin+'/sort_'+in_name+".bam"
           inputbam=pysam.Samfile(inputbam_name,"rb")
           if reftype.lower()=="genome":
               annodictentry = genome_annotation(inputbam, annotation, db_detail, db_repeat, args.mapq, strandenforced, strand, unique, annodictentry)
           elif reftype.lower()=="transcript":
               annodictentry = otherlib_annotation(inputbam, annofile, unique, strand, strandenforced, annodictentry)
           inputbam.close()
+      in_name=in_name+"_unmap"
     gc.collect()
 
     fReadOut=open(fperfix+".pairOutput","w")

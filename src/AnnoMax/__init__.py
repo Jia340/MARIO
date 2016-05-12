@@ -17,7 +17,7 @@ def overlap(bed1,bed2):
     Example:
     
     >>> from xplib.Annotation import Bed
-    >>> from Annotation import overlap
+    >>> from AnnoMax import overlap
     >>> bed1=Bed(["chr1",10000,12000])
     >>> bed2=Bed(["chr1",9000,13000])
     >>> print overlap(bed1,bed2)
@@ -39,7 +39,7 @@ def IsProperStrand(bed1, bed2):
     Example:
     
     >>> from xplib.Annotation import Bed
-    >>> from Annotation import overlap
+    >>> from AnnoMax import overlap
     >>> bed1=Bed(["chr1",10000,12000,'-'])
     >>> bed2=Bed(["chr1",9000,13000,'+'])
     >>> print IsProperStrand(bed1,bed2)
@@ -58,16 +58,16 @@ def IsPartOf(bed1, bed2):
     :param bed2: A Bed object from `xplib.Annotation.Bed <http://bam2xwiki.appspot.com/bed>`_ (BAM2X)
     :returns: boolean -- True or False
 
+    This function allows N overhang nucleotides. 
+
     Example:
     
     >>> from xplib.Annotation import Bed
-    >>> from Annotation import overlap
+    >>> from AnnoMax import overlap
     >>> bed1=Bed(["chr1",10000,12000])
     >>> bed2=Bed(["chr1",9000,13000])
     >>> print IsPartOf(bed1,bed2)
     True
-
-    This function allows N overhang nucleotides. 
 
     """
     N=5
@@ -89,7 +89,7 @@ def Subtype(bed1,genebed,typ):
     
     >>> from xplib.Annotation import Bed
     >>> from xplib import DBI
-    >>> from Annotation import Subtype
+    >>> from AnnoMax import Subtype
     >>> bed1=Bed(["chr13",40975747,40975770])
     >>> a=DBI.init("../../Data/Ensembl_mm9.genebed.gz","bed")
     >>> genebed=a.query(bed1).next()
@@ -147,9 +147,9 @@ def optimize_annotation(c_dic,bed,ref_detail):
     '''
     This function will select an optimized annotation for the bed region from the genes in c_dic.
 
-    It will select the annotation based on a list of priorities. The hypothesis is: pre-mature RNA -> mRNA+intron/nc transcript -> small functional RNA
-    So the list of priorities is: exon/utr of coding transcript > exon of lincRNA > small RNA > exon/utr of nc transcript > intron of mRNA > intron of lincRNA
-    ProperStrand > NonProperStrand > repeat masker (except rRNA_repeat according to the annotation files)
+    It will select the annotation based on a list of priorities. 
+    The list of priorities is: exon/utr of coding transcript > small RNA > exon of lincRNA > small RNA > exon/utr of nc transcript > intron of mRNA > intron of lincRNA.
+    Genes on the same strand as the read(ProperStrand) will always have higher priority than those on the opposite strand (NonProperStrand). Repeat elements have the lowest priority (except rRNA_repeat according to the annotation files)
     '''
 
     #keep only one record for each type is enough
@@ -265,11 +265,11 @@ def optimize_annotation(c_dic,bed,ref_detail):
 def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
     """
     This function is based on :func:`overlap` and :func:`optimize_annotation` and :func:`Subtype` functions to annotate RNA type/name/subtype for any genomic region.
-    This function will first find genes with maximum overlap (+/-2 nt) with bed, and use the function optimize_annotation to select an optimized annotation for the bed. 
+    This function will first find genes with maximum overlap with bed, and use the function optimize_annotation to select an optimized annotation for the bed with following steps:  
 
-    >Find hits with overlaps larger than Perc_overlap of the bed region length and build dic
-    >Find hits with overlaps between Perc_max-1.0 * max_overlap and build P_dic, N_dic
-    >Find an annotation
+    * Find hits (genes) with overlaps larger than Perc_overlap of the bed region length and build dic
+    * Find hits (genes) with overlaps between (Perc_max * max_overlap, max_overlap) and build P_dic (for ProperStrand), N_dic (for NonProperStrand).
+    * Find an annotation for the bed region among the hits.
 
     :param bed: A Bed object defined by `xplib.Annotation.Bed <http://bam2xwiki.appspot.com/bed>`_ (in BAM2X).
     :param ref_allRNA: the `DBI.init <http://bam2xwiki.appspot.com/DBI>`_ object (from BAM2X) for bed6 file of all kinds of RNA
@@ -281,11 +281,11 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
 
     >>> from xplib.Annotation import Bed
     >>> from xplib import DBI
-    >>> from Annotation import annotation
+    >>> from AnnoMax import annotation
     >>> bed=Bed(["chr13",40975747,40975770])
-    >>> ref_allRNA=DBI.init("../../Data/all_RNAs-rRNA_repeat.txt.gz","bed")
-    >>> ref_detail=DBI.init("../../Data/Ensembl_mm9.genebed.gz","bed")
-    >>> ref_repeat=DBI.init("../../Data/mouse.repeat.txt.gz","bed")
+    >>> ref_allRNA=DBI.init("all_RNAs-rRNA_repeat.txt.gz","bed")
+    >>> ref_detail=DBI.init("Data/Ensembl_mm9.genebed.gz","bed")
+    >>> ref_repeat=DBI.init("Data/mouse.repeat.txt.gz","bed")
     >>> print annotation(bed,ref_allRNA,ref_detail,ref_repeat)
     ["protein_coding","gcnt2","intron","ProperStrand"]
 
@@ -421,37 +421,6 @@ def annotation(bed,ref_allRNA,ref_detail,ref_repeat):
 
     return [ftyp,fname,fsubtype,fstrandcol]
 
-        ##find a 
-
-        # '''
-        # try:
-        #     tran=genome.getTranscriptByStableId(StableId=tempname).Gene
-        #     typ=tran.BioType
-        #     name=tran.Symbol
-        # except: pass
-        # '''
-    # if (typ=="protein_coding" and subtype=="."):        # this means the hit is actually in a intergenic region (rare)
-    #     typ = "non"
-    #     name = "."
-
-        # '''
-        # try:
-        #     repeats=genome.getFeatures(CoordName=bed.chr[3:], Start=bed.start, End=bed.stop, feature_types='repeat')
-        #     for r in repeats:
-        #        if r.RepeatClass!='dust':
-        #            typ=r.RepeatType
-        #            name=r.Symbol
-        #            break 
-        # except: pass
-        # '''
-    # if typ=="lincRNA" and subtype!="intron":
-    #     subtype="exon"
-    # if typ in ["snoRNA","snRNA","miRNA","miscRNA"]:
-    #     subtype='.'
-    #if typ=="pseudogene":
-      #  subtype="."
-    #if typ=="SINE" and subtype=="Alu":
-    #    subtype="B1"
 
                     
            

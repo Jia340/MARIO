@@ -1,5 +1,5 @@
 from xplib.Annotation import Bed
-from Annotation import *
+from AnnoMax import *
 
 class annotated_bed():
     """
@@ -130,8 +130,9 @@ class annotated_bed():
         "chr13\t40975747\t40975770\tprotein_coding\tgcnt2\tintron\t3"
         """
         if not self.annotated:
-            bed=Bed([self.chr,self.start,self.end])
-            [self.type,self.name,self.subtype]=annotation(bed,dbi1,dbi2,dbi3)
+            if "chr" in self.chr:
+                bed=Bed([self.chr,self.start,self.end])
+                [self.type,self.name,self.subtype,self.proper]=annotation(bed,dbi1,dbi2,dbi3)
             self.annotated = True
 
     def __str__(self):

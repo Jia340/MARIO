@@ -16,7 +16,7 @@ def ParseArg():
     p.add_argument("linkedPair",type=str,help="file for information of linked pairs, which is output of 'Stitch-seq_Aligner.py'")
     p.add_argument('-n','--name',type=str,help="give a gene name and plot the interaction heatmap new the gene region, exclusive with '-r' option")
     p.add_argument('-r',type=str,help="Choose region to plot, give region with format 'chr:start-end', exclusive with '-n' option")
-    p.add_argument('-s','--start',type=int,nargs='+',default=(7,9),help='start column number of the second region in interaction file and linkedPair file, default=(7,9)')
+    p.add_argument('-s','--start',type=int,nargs='+',default=(7,11),help='start column number of the second region in interaction file and linkedPair file, default=(7,11)')
     p.add_argument('-g','--genebed',type=str,default='/home/yu68/bharat-interaction/new_lincRNA_data/Ensembl_mm9.genebed',help='the genebed file from Ensembl, default: Ensembl_mm9.genebed')
     p.add_argument("-p","--pair_dist",type=int,default=1000,help="two interacted parts within this distance are considered as self-ligated and they are marked or eliminated (see option -s for slim mode), default: 1000bp")
     p.add_argument("-S","--Slim",action='store_true',help='set slim mode to eliminate self ligated interactions')

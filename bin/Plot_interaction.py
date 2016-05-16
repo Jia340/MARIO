@@ -15,7 +15,7 @@ def ParseArg():
     p.add_argument("linkedPair",type=str,help="file for information of linked pairs, which is output of 'Stitch-seq_Aligner.py'")
     p.add_argument('-n',type=int,help="Choose region to plot, it can be a number (around n-th interaction in the interaction file). This is mutually exclusive with '-r' option")
     p.add_argument('-r',type=str,nargs='+',help="Choose region to plot, give two interaction regions with format 'chr:start-end', this is mutually exclusive with '-n' option")
-    p.add_argument('-s','--start',type=int,nargs='+',default=(7,9),help='start column number of the second region in interaction file and linkedPair file, default=(7,9)')
+    p.add_argument('-s','--start',type=int,nargs='+',default=(7,11),help='start column number of the second region in interaction file and linkedPair file, default=(7,11)')
     p.add_argument('-d','--distance',type=int,default=10,help='the plus-minus distance (unit: kbp) flanking the interaction regions to be plotted, default=10')
     p.add_argument('-g','--genebed',type=str,default='/home/yu68/bharat-interaction/new_lincRNA_data/Ensembl_mm9.genebed',help='the genebed file from Ensembl, default: Ensembl_mm9.genebed')
     p.add_argument('-w','--phyloP_wig',type=str,default='/data2/sysbio/UCSD-sequencing/mouse.phyloP30way.bw',help='the bigWig file for phyloP scores,defualt: mouse.phyloP30way.bw')
@@ -30,8 +30,12 @@ def ParseArg():
 class Bed:
     def __init__(self,x,**kwargs):
         self.chr=x[0]
-        self.start=int(x[1])
-        self.stop=int(x[2])
+        try:
+            self.start=int(x[1])
+            self.stop=int(x[2])
+        except:
+            self.start=int(x[1].split(",")[0])
+            self.stop=int(x[2].split(",")[1])
         if len(x)>=6:
             self.type=x[3]
             self.name=x[4]
@@ -59,6 +63,7 @@ def read_interaction(File,s):
     for l in a.read().split('\n'):
         if l.strip()=="": continue
         lsep=l.split('\t')
+        print lsep
         if lsep[3] in ['+','-']:
             bed1=Bed(lsep[0:3],strand=lsep[3])
             bed2=Bed(lsep[s:(s+3)],strand=lsep[s+3])
@@ -152,7 +157,7 @@ def SingleFragment(p1,p2,pair_dist):
       2. same chromosome
       3. same RNA
     '''
-    if (p1.stop-p1.start==90) and (p2.stop-p2.start==100) and (p1.chr==p2.chr):
+    if (p1.stop-p1.start>=78) and (p2.stop-p2.start>=88) and (p1.chr==p2.chr):
         if abs(p1.center-p2.center)<pair_dist:
             return True
 
@@ -213,7 +218,11 @@ def Main():
         part2=read_region(args.r[1])
     else:
         print >> sys.stderr, "need to specify two regions using '-r'"
-        
+    
+    if "chr" not in part1.chr or "chr" not in part2.chr:
+        print >> sys.stderr, "This program only works for genomic regions."
+        exit(0)    
+    
     start1=part1.start-distance
     end1=part1.stop+distance
     start2=part2.start-distance

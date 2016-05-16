@@ -141,7 +141,7 @@ def SingleFragment(p1,p2):
       2. same chromosome
       3. same RNA
     '''
-    if (p1.end-p1.start==90) and (p2.end-p2.start==100) and (p1.chr==p2.chr) and p1.name==p2.name:
+    if (p1.end-p1.start>=78) and (p2.end-p2.start>=88) and (p1.chr==p2.chr) and p1.name==p2.name:
         return True
         
 
@@ -173,8 +173,14 @@ def Main():
     for line in inp.read().split('\n'):
         if line=='': continue
         line=line.strip().split('\t')
-        p1=annotated_bed(line[0:8],id=k)
-        p2=annotated_bed(line[9:],id=k)
+        p1=annotated_bed(line[0:10],id=k)
+        p2=annotated_bed(line[11:],id=k)
+        if isinstance(p1.start, list):
+            p1.start=int(p1.start[0])
+            p1.end=int(p1.end[-1])
+        if isinstance(p2.start, list):
+            p2.start=int(p2.start[0])
+            p2.end=int(p2.end[-1])
         if SingleFragment(p1,p2): continue
         k+=1
         part1.append(p1)

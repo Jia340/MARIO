@@ -80,7 +80,7 @@ RCircos.Histogram.Plot<-function(hist.data, data.col, track.num, side, col)
   #       xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   
   num.subtrack <- RCircos.Par$sub.tracks;
-  RCircos.Track.Outline(out.pos, in.pos, RCircos.Par$sub.tracks);
+  RCircos.Track.Outline(out.pos, in.pos, RCircos.Par$sub.tracks, NULL);
   
   for(a.point in 1:nrow(hist.data))
   {

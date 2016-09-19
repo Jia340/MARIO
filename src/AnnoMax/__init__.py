@@ -167,6 +167,13 @@ def optimize_annotation(c_dic,bed,ref_detail):
         fsubtype=c_dic["rRNA"][0][2]
         fstrandcol=c_dic["rRNA"][0][3]
         return [ftyp,fname,fsubtype,fstrandcol]
+        
+    if "short_nc" in c_dic and ftyp=="":
+        ftyp=c_dic["short_nc"][0][0]
+        fname=c_dic["short_nc"][0][1]
+        fsubtype=c_dic["short_nc"][0][2]
+        fstrandcol=c_dic["short_nc"][0][3]
+        return [ftyp,fname,fsubtype,fstrandcol]
 
 
     if "protein_coding" in c_dic:
@@ -216,12 +223,7 @@ def optimize_annotation(c_dic,bed,ref_detail):
                     c_dic.pop("protein_coding",None)
         del gene
 
-    if "short_nc" in c_dic and ftyp=="":
-        ftyp=c_dic["short_nc"][0][0]
-        fname=c_dic["short_nc"][0][1]
-        fsubtype=c_dic["short_nc"][0][2]
-        fstrandcol=c_dic["short_nc"][0][3]
-        return [ftyp,fname,fsubtype,fstrandcol]
+
 
  
     if "lincRNA" in c_dic and ftyp=="":
